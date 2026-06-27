@@ -19,7 +19,12 @@ import homeassistant.helpers.http as http_module
 from homeassistant.helpers.http import HomeAssistantView
 
 from .const import CONTEXT_REGISTRY_KEY
-from .context_linking import root_otel_context, store_linked_span_context
+from .context_linking import store_linked_span_context
+from .propagation import (
+    span_creation_context_from_carrier,
+    store_trace_carrier_on_context,
+    trace_carrier_from_request,
+)
 from .span_attributes import rest_request_attributes
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,6 +83,9 @@ def install_rest_tracing(hass: HomeAssistant, tracer: Tracer) -> RestTracingPatc
 
     def traced_view_context(request: web.Request) -> Any:
         ha_context = original_view_context(request)
+        store_trace_carrier_on_context(
+            ha_context, trace_carrier_from_request(request)
+        )
         current_span = trace.get_current_span()
         registry = hass.data.get(CONTEXT_REGISTRY_KEY)
         if (
@@ -157,7 +165,9 @@ def _wrap_request_handler(
         )
         with tracer.start_as_current_span(
             _span_name_from_request(request),
-            context=root_otel_context(),
+            context=span_creation_context_from_carrier(
+                trace_carrier_from_request(request)
+            ),
             kind=SpanKind.SERVER,
             attributes=attributes,
         ):

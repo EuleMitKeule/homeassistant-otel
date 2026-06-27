@@ -63,7 +63,12 @@ MAX_CHANGED_ATTRIBUTES: Final = 20
 MAX_ATTRIBUTE_VALUE_LENGTH: Final = 256
 
 OTEL_CONTEXT_CACHE_KEY: Final = "homeassistant_otel_trace_context"
+TRACEPARENT_CACHE_KEY: Final = "homeassistant_otel_traceparent"
+TRACESTATE_CACHE_KEY: Final = "homeassistant_otel_tracestate"
 CONTEXT_REGISTRY_KEY: Final = "homeassistant_otel_context_registry"
+
+TRACEPARENT_KEY: Final = "traceparent"
+TRACESTATE_KEY: Final = "tracestate"
 
 TRACER_NAME_WEBSOCKET: Final = "homeassistant.websocket_api"
 TRACER_NAME_EVENT_BUS: Final = "homeassistant.event_bus"

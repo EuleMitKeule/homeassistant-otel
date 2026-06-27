@@ -16,6 +16,7 @@ from homeassistant.util.event_type import EventType
 
 from .const import CONTEXT_REGISTRY_KEY
 from .context_linking import resolve_span_creation_context, store_linked_span_context
+from .propagation import store_trace_carrier_on_context, trace_carrier_from_ws_message
 from .span_attributes import event_attributes
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,6 +79,9 @@ def install_event_tracing(
         msg: dict[str, Any],
     ) -> Context:
         ha_context = original_connection_context(self, msg)
+        store_trace_carrier_on_context(
+            ha_context, trace_carrier_from_ws_message(msg)
+        )
         current_span = trace.get_current_span()
         span_context = current_span.get_span_context()
         if span_context.is_valid and current_span.is_recording():

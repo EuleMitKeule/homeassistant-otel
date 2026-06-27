@@ -27,6 +27,11 @@ from .service_tracing import (
     uninstall_service_tracing,
 )
 from .tracing import TraceRuntime, setup_trace_runtime
+from .websocket_event_propagation import (
+    WebSocketEventPropagationPatch,
+    install_websocket_event_propagation,
+    uninstall_websocket_event_propagation,
+)
 from .websocket_tracing import (
     WebSocketTracingPatch,
     install_websocket_tracing,
@@ -48,6 +53,7 @@ class HomeAssistantOtelRuntimeData:
     service_patch: ServiceTracingPatch
     mqtt_patch: MqttTracingPatch | None
     rest_patch: RestTracingPatch
+    websocket_event_propagation_patch: WebSocketEventPropagationPatch
 
 
 async def async_setup_entry(
@@ -92,6 +98,7 @@ async def async_setup_entry(
 
     websocket_patch = install_websocket_tracing(hass, trace_runtime.websocket_tracer)
     event_patch = install_event_tracing(hass, trace_runtime.event_tracer)
+    websocket_event_propagation_patch = install_websocket_event_propagation()
     service_patch = install_service_tracing(hass, trace_runtime.service_tracer)
     mqtt_patch = install_mqtt_tracing(hass, trace_runtime.mqtt_tracer)
     rest_patch = install_rest_tracing(hass, trace_runtime.rest_tracer)
@@ -103,6 +110,7 @@ async def async_setup_entry(
         service_patch=service_patch,
         mqtt_patch=mqtt_patch,
         rest_patch=rest_patch,
+        websocket_event_propagation_patch=websocket_event_propagation_patch,
     )
 
     return True
@@ -117,6 +125,7 @@ async def async_unload_entry(
     uninstall_mqtt_tracing(hass)
     uninstall_service_tracing(hass)
     uninstall_event_tracing(hass)
+    uninstall_websocket_event_propagation()
     uninstall_websocket_tracing(hass)
     await hass.async_add_executor_job(entry.runtime_data.trace_runtime.shutdown)
     return True

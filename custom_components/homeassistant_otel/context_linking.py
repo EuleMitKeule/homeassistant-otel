@@ -8,6 +8,12 @@ from opentelemetry.trace import NonRecordingSpan, Span, SpanContext
 from homeassistant.core import Context, HomeAssistant
 
 from .const import CONTEXT_REGISTRY_KEY, OTEL_CONTEXT_CACHE_KEY
+from .propagation import (
+    otel_context_from_carrier,
+    store_trace_carrier_on_context,
+    trace_carrier_from_ha_context,
+    trace_carrier_from_span,
+)
 
 
 def store_linked_span_context(
@@ -22,6 +28,7 @@ def store_linked_span_context(
 
     cache = ha_context._cache
     cache[OTEL_CONTEXT_CACHE_KEY] = span_context
+    store_trace_carrier_on_context(ha_context, trace_carrier_from_span(span))
     registry[ha_context.id] = span_context
 
 
@@ -75,6 +82,12 @@ def resolve_span_creation_context(
     ha_context: Context | None,
 ) -> otel_context.Context:
     """Resolve the OpenTelemetry context to use when starting a span."""
+    carrier = trace_carrier_from_ha_context(ha_context)
+    if carrier:
+        remote_context = otel_context_from_carrier(carrier)
+        if remote_context is not None:
+            return remote_context
+
     parent_otel_context = resolve_parent_otel_context(hass, ha_context)
     if parent_otel_context is not None:
         return parent_otel_context

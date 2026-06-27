@@ -20,7 +20,10 @@ from homeassistant.components.websocket_api import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.typing import VolSchemaType
 
-from .context_linking import root_otel_context
+from .propagation import (
+    span_creation_context_from_carrier,
+    trace_carrier_from_ws_message,
+)
 from .span_attributes import websocket_attributes
 
 _LOGGER = logging.getLogger(__name__)
@@ -198,7 +201,9 @@ def _websocket_span(
 
     return tracer.start_as_current_span(
         span_name,
-        context=root_otel_context(),
+        context=span_creation_context_from_carrier(
+            trace_carrier_from_ws_message(msg)
+        ),
         kind=SpanKind.SERVER,
         attributes=attributes,
     )
