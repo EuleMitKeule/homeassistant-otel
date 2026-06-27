@@ -1,7 +1,7 @@
 {
   "repository_url": "https://github.com/eulemitkeule/homeassistant-otel.git",
   "branches": [
-    "master"
+    "main"
   ],
   "plugins": [
     "@semantic-release/commit-analyzer",

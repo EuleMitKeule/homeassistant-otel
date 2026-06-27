@@ -9,7 +9,7 @@ on:
       - reopened
   push:
     branches:
-      - master
+      - main
 
 env:
   SONAR_PROJECT_KEY: EuleMitKeule_homeassistant-otel

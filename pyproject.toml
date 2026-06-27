@@ -42,7 +42,7 @@ test = [
 
 [project.urls]
 Repository = "https://github.com/eulemitkeule/homeassistant-otel"
-Documentation = "https://github.com/eulemitkeule/homeassistant-otel/blob/master/README.md"
+Documentation = "https://github.com/eulemitkeule/homeassistant-otel/blob/main/README.md"
 Changelog = "https://github.com/EuleMitKeule/homeassistant-otel/releases"
 Issues = "https://github.com/eulemitkeule/homeassistant-otel/issues"
 
