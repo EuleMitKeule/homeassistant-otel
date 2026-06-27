@@ -1,0 +1,183 @@
+name: Code Quality
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  push:
+    branches:
+      - master
+
+env:
+  SONAR_PROJECT_KEY: EuleMitKeule_homeassistant-otel
+  SONAR_PROJECT_ORGANIZATION: eule
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+  ruff:
+    needs: cache
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run ruff
+        run: |
+          uv run ruff check .
+
+  tests:
+    needs: cache
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: |
+          uv run pytest --cov=. --cov-report=term tests
+
+  sonar:
+    needs: cache
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: |
+          uv run pytest --cov=. --cov-report=xml --cov-report=term tests
+
+      - name: fix code coverage paths
+        run: |
+          sed -i 's|/home/runner/work/homeassistant-otel/homeassistant-otel|/github/workspace|g' coverage.xml
+
+      - name: Run SonarCloud analysis
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ env.SONAR_PROJECT_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.sources=custom_components/homeassistant_otel
+            -Dsonar.tests=tests
+            -Dsonar.python.version=${{ matrix.python-version }}
+            -Dsonar.text.inclusions=**/*.py
+
+  hacs:
+    needs: cache
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run HACS
+        uses: "hacs/action@main"
+        with:
+          category: "integration"
+
+  hassfest:
+    needs: cache
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.14"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: uv-${{ runner.os }}-${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --no-group dev --no-group test
+
+      - name: Run Hassfest
+        uses: home-assistant/actions/hassfest@master
