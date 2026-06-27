@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.importlib import async_import_module
 
 from .const import CONF_AUTH_HEADER, CONF_ENDPOINT, CONF_PROTOCOL
 from .event_tracing import (
@@ -39,6 +40,7 @@ from .websocket_tracing import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_MQTT_APPLY_MODULE = "custom_components.homeassistant_otel.mqtt_apply"
 
 type HomeAssistantOtelConfigEntry = ConfigEntry[HomeAssistantOtelRuntimeData]
 
@@ -100,7 +102,8 @@ async def async_setup_entry(
     event_patch = install_event_tracing(hass, trace_runtime.event_tracer)
     websocket_event_propagation_patch = install_websocket_event_propagation()
     service_patch = install_service_tracing(hass, trace_runtime.service_tracer)
-    mqtt_patch = install_mqtt_tracing(hass, trace_runtime.mqtt_tracer)
+    mqtt_apply = await async_import_module(hass, _MQTT_APPLY_MODULE)
+    mqtt_patch = install_mqtt_tracing(hass, trace_runtime.mqtt_tracer, mqtt_apply)
     rest_patch = install_rest_tracing(hass, trace_runtime.rest_tracer)
 
     entry.runtime_data = HomeAssistantOtelRuntimeData(

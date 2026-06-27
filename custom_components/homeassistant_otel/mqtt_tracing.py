@@ -2,8 +2,8 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-import importlib
 import logging
+from types import ModuleType
 from typing import Any
 
 from opentelemetry.trace import Tracer
@@ -15,8 +15,8 @@ from homeassistant.setup import EventComponentLoaded
 _LOGGER = logging.getLogger(__name__)
 _PATCH_STATE_KEY = "homeassistant_otel_mqtt_patch"
 _LISTENER_KEY = "homeassistant_otel_mqtt_listener"
+_MQTT_APPLY_MODULE_KEY = "homeassistant_otel_mqtt_apply_module"
 _MQTT_DOMAIN = "mqtt"
-_MQTT_APPLY_MODULE = "homeassistant_otel.mqtt_apply"
 
 
 @dataclass
@@ -27,12 +27,14 @@ class MqttTracingPatch:
 
 
 def install_mqtt_tracing(
-    hass: HomeAssistant, tracer: Tracer
+    hass: HomeAssistant, tracer: Tracer, mqtt_apply: ModuleType
 ) -> MqttTracingPatch | None:
     """Instrument MQTT message handling with OpenTelemetry spans."""
     if hass.data.get(_PATCH_STATE_KEY):
         msg = "MQTT tracing is already installed"
         raise RuntimeError(msg)
+
+    hass.data[_MQTT_APPLY_MODULE_KEY] = mqtt_apply
 
     if _MQTT_DOMAIN in hass.config.components:
         return _apply_mqtt_patch(hass, tracer)
@@ -55,10 +57,10 @@ def uninstall_mqtt_tracing(hass: HomeAssistant) -> None:
     """Remove MQTT tracing hooks."""
     _remove_mqtt_listener(hass)
     patch: MqttTracingPatch | None = hass.data.pop(_PATCH_STATE_KEY, None)
-    if patch is None:
+    mqtt_apply: ModuleType | None = hass.data.pop(_MQTT_APPLY_MODULE_KEY, None)
+    if patch is None or mqtt_apply is None:
         return
 
-    mqtt_apply = importlib.import_module(_MQTT_APPLY_MODULE)
     mqtt_apply.remove_mqtt_patch(patch)
 
 
@@ -68,7 +70,7 @@ def _remove_mqtt_listener(hass: HomeAssistant) -> None:
 
 
 def _apply_mqtt_patch(hass: HomeAssistant, tracer: Tracer) -> MqttTracingPatch:
-    mqtt_apply = importlib.import_module(_MQTT_APPLY_MODULE)
+    mqtt_apply: ModuleType = hass.data[_MQTT_APPLY_MODULE_KEY]
     patch: MqttTracingPatch = mqtt_apply.apply_mqtt_patch(tracer)
     hass.data[_PATCH_STATE_KEY] = patch
     return patch
