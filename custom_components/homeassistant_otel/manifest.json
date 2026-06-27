@@ -1,0 +1,20 @@
+{
+  "domain": "homeassistant_otel",
+  "name": "Home Assistant OpenTelemetry",
+  "codeowners": ["@EuleMitKeule"],
+  "config_flow": true,
+  "documentation": "https://github.com/eulemitkeule/homeassistant-otel#readme",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/eulemitkeule/homeassistant-otel/issues",
+  "loggers": ["opentelemetry"],
+  "requirements": [
+    "opentelemetry-api==1.41.0",
+    "opentelemetry-proto==1.41.0",
+    "opentelemetry-sdk==1.41.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.41.0",
+    "opentelemetry-exporter-otlp-proto-http==1.41.0"
+  ],
+  "single_config_entry": true,
+  "version": "0.0.0-dev"
+}

@@ -28,11 +28,16 @@ dev = [
     "homeassistant-stubs",
     "voluptuous-stubs",
     "homeassistant>=2026.6.0",
+    "opentelemetry-api==1.41.0",
+    "opentelemetry-sdk==1.41.0",
+    "opentelemetry-exporter-otlp-proto-grpc==1.41.0",
+    "opentelemetry-exporter-otlp-proto-http==1.41.0",
 ]
 test = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "pytest-homeassistant-custom-component",
 ]
 
 [project.urls]
@@ -40,3 +45,16 @@ Repository = "https://github.com/eulemitkeule/homeassistant-otel"
 Documentation = "https://github.com/eulemitkeule/homeassistant-otel/blob/master/README.md"
 Changelog = "https://github.com/EuleMitKeule/homeassistant-otel/releases"
 Issues = "https://github.com/eulemitkeule/homeassistant-otel/issues"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D203", "D213", "COM812", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "SLF001", "ANN", "TC002"]
+"custom_components/homeassistant_otel/websocket_tracing.py" = ["SLF001"]

@@ -1,0 +1,31 @@
+services:
+  tempo:
+    image: grafana/tempo:2.7.2
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./config/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "0.0.0.0:4317:4317" # Host/browser: localhost:4317 | HA dev container: host.docker.internal:4317
+      - "0.0.0.0:4318:4318" # HA dev container HTTP: http://host.docker.internal:4318/v1/traces
+      - "0.0.0.0:3200:3200" # Tempo query API
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    depends_on:
+      - tempo
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: password
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "0.0.0.0:3000:3000" # Host/browser: http://localhost:3000
+    restart: unless-stopped
+
+volumes:
+  tempo-data:
+  grafana-data:

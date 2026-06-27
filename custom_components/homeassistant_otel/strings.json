@@ -1,0 +1,58 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_service%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "step": {
+      "reauth_confirm": {
+        "title": "Update OpenTelemetry authentication",
+        "description": "Update the OTLP connection settings to restore trace export.",
+        "data": {
+          "endpoint": "[%key:component::homeassistant_otel::config::step::user::data::endpoint%]",
+          "protocol": "[%key:component::homeassistant_otel::config::step::user::data::protocol%]",
+          "auth_header": "[%key:component::homeassistant_otel::config::step::user::data::auth_header%]"
+        },
+        "data_description": {
+          "endpoint": "[%key:component::homeassistant_otel::config::step::user::data_description::endpoint%]",
+          "protocol": "[%key:component::homeassistant_otel::config::step::user::data_description::protocol%]",
+          "auth_header": "[%key:component::homeassistant_otel::config::step::user::data_description::auth_header%]"
+        }
+      },
+      "reconfigure": {
+        "title": "Update OpenTelemetry export settings",
+        "description": "Update the OTLP connection settings used for trace export.",
+        "data": {
+          "endpoint": "[%key:component::homeassistant_otel::config::step::user::data::endpoint%]",
+          "protocol": "[%key:component::homeassistant_otel::config::step::user::data::protocol%]",
+          "auth_header": "[%key:component::homeassistant_otel::config::step::user::data::auth_header%]"
+        },
+        "data_description": {
+          "endpoint": "[%key:component::homeassistant_otel::config::step::user::data_description::endpoint%]",
+          "protocol": "[%key:component::homeassistant_otel::config::step::user::data_description::protocol%]",
+          "auth_header": "[%key:component::homeassistant_otel::config::step::user::data_description::auth_header%]"
+        }
+      },
+      "user": {
+        "title": "Configure OpenTelemetry trace export",
+        "description": "Set up trace export to Grafana Tempo or another OTLP-compatible backend.",
+        "data": {
+          "endpoint": "OTLP endpoint URL",
+          "protocol": "Protocol",
+          "auth_header": "Authorization header"
+        },
+        "data_description": {
+          "endpoint": "URL of the OTLP receiver (e.g. http://localhost:4317 for gRPC, http://localhost:4318/v1/traces for HTTP)",
+          "protocol": "Transport protocol to use for sending traces",
+          "auth_header": "Optional Bearer token or API key for authentication"
+        }
+      }
+    }
+  }
+}

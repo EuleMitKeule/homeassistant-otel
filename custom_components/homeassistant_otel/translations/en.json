@@ -1,0 +1,58 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Service is already configured",
+      "reauth_successful": "Re-authentication was successful",
+      "reconfigure_successful": "Re-configuration was successful"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "reauth_confirm": {
+        "title": "Update OpenTelemetry authentication",
+        "description": "Update the OTLP connection settings to restore trace export.",
+        "data": {
+          "endpoint": "OTLP endpoint URL",
+          "protocol": "Protocol",
+          "auth_header": "Authorization header"
+        },
+        "data_description": {
+          "endpoint": "URL of the OTLP receiver (e.g. http://localhost:4317 for gRPC, http://localhost:4318/v1/traces for HTTP)",
+          "protocol": "Transport protocol to use for sending traces",
+          "auth_header": "Optional Bearer token or API key for authentication"
+        }
+      },
+      "reconfigure": {
+        "title": "Update OpenTelemetry export settings",
+        "description": "Update the OTLP connection settings used for trace export.",
+        "data": {
+          "endpoint": "OTLP endpoint URL",
+          "protocol": "Protocol",
+          "auth_header": "Authorization header"
+        },
+        "data_description": {
+          "endpoint": "URL of the OTLP receiver (e.g. http://localhost:4317 for gRPC, http://localhost:4318/v1/traces for HTTP)",
+          "protocol": "Transport protocol to use for sending traces",
+          "auth_header": "Optional Bearer token or API key for authentication"
+        }
+      },
+      "user": {
+        "title": "Configure OpenTelemetry trace export",
+        "description": "Set up trace export to Grafana Tempo or another OTLP-compatible backend.",
+        "data": {
+          "endpoint": "OTLP endpoint URL",
+          "protocol": "Protocol",
+          "auth_header": "Authorization header"
+        },
+        "data_description": {
+          "endpoint": "URL of the OTLP receiver (e.g. http://localhost:4317 for gRPC, http://localhost:4318/v1/traces for HTTP)",
+          "protocol": "Transport protocol to use for sending traces",
+          "auth_header": "Optional Bearer token or API key for authentication"
+        }
+      }
+    }
+  }
+}
