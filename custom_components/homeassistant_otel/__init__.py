@@ -128,7 +128,9 @@ async def async_unload_entry(
     uninstall_mqtt_tracing(hass)
     uninstall_service_tracing(hass)
     uninstall_event_tracing(hass)
-    uninstall_websocket_event_propagation()
+    uninstall_websocket_event_propagation(
+        entry.runtime_data.websocket_event_propagation_patch
+    )
     uninstall_websocket_tracing(hass)
     await hass.async_add_executor_job(entry.runtime_data.trace_runtime.shutdown)
     return True

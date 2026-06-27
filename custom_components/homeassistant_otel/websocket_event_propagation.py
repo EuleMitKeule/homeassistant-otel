@@ -1,5 +1,7 @@
 """Inject W3C trace context into Home Assistant websocket event payloads."""
 
+# ruff: noqa: SLF001
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -27,14 +29,12 @@ class WebSocketEventPropagationPatch:
     ]
 
 
-_INSTALLED_PATCH: WebSocketEventPropagationPatch | None = None
+_PATCH_HOLDER: list[WebSocketEventPropagationPatch | None] = [None]
 
 
 def install_websocket_event_propagation() -> WebSocketEventPropagationPatch:
     """Patch websocket event serialization to include W3C trace context."""
-    global _INSTALLED_PATCH  # noqa: PLW0603
-
-    if _INSTALLED_PATCH is not None:
+    if _PATCH_HOLDER[0] is not None:
         msg = "WebSocket event propagation is already installed"
         raise RuntimeError(msg)
 
@@ -51,9 +51,10 @@ def install_websocket_event_propagation() -> WebSocketEventPropagationPatch:
     def traced_partial_cached_event_message(event: Event[Any]) -> bytes:
         event_dict = event_dict_with_trace_context(event)
         return (
-            messages._message_to_json_bytes_or_none(  # noqa: SLF001
-                {"type": "event", "event": event_dict}
-            )
+            messages._message_to_json_bytes_or_none({
+                "type": "event",
+                "event": event_dict,
+            })
             or messages.INVALID_JSON_PARTIAL_MESSAGE
         )
 
@@ -94,28 +95,25 @@ def install_websocket_event_propagation() -> WebSocketEventPropagationPatch:
         return result
 
     messages.event_message = traced_event_message
-    messages._partial_cached_event_message = traced_partial_cached_event_message  # noqa: SLF001
-    messages._state_diff_event = traced_state_diff_event  # noqa: SLF001
+    messages._partial_cached_event_message = traced_partial_cached_event_message
+    messages._state_diff_event = traced_state_diff_event
 
-    _INSTALLED_PATCH = WebSocketEventPropagationPatch(
+    patch = WebSocketEventPropagationPatch(
         original_event_message=original_event_message,
         original_partial_cached_event_message=original_partial_cached_event_message,
         original_state_diff_event=original_state_diff_event,
     )
+    _PATCH_HOLDER[0] = patch
     _LOGGER.debug("Installed websocket event trace propagation hooks")
-    return _INSTALLED_PATCH
+    return patch
 
 
-def uninstall_websocket_event_propagation() -> None:
+def uninstall_websocket_event_propagation(
+    patch: WebSocketEventPropagationPatch,
+) -> None:
     """Remove websocket event propagation hooks."""
-    global _INSTALLED_PATCH  # noqa: PLW0603
-
-    patch = _INSTALLED_PATCH
-    if patch is None:
-        return
-
     messages.event_message = patch.original_event_message
-    messages._partial_cached_event_message = patch.original_partial_cached_event_message  # noqa: SLF001
-    messages._state_diff_event = patch.original_state_diff_event  # noqa: SLF001
-    _INSTALLED_PATCH = None
+    messages._partial_cached_event_message = patch.original_partial_cached_event_message
+    messages._state_diff_event = patch.original_state_diff_event
+    _PATCH_HOLDER[0] = None
     _LOGGER.debug("Removed websocket event trace propagation hooks")

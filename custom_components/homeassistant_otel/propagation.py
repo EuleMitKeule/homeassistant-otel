@@ -12,7 +12,12 @@ from opentelemetry.trace import Span
 
 from homeassistant.core import Context, Event
 
-from .const import TRACEPARENT_CACHE_KEY, TRACESTATE_CACHE_KEY, TRACEPARENT_KEY, TRACESTATE_KEY
+from .const import (
+    TRACEPARENT_CACHE_KEY,
+    TRACEPARENT_KEY,
+    TRACESTATE_CACHE_KEY,
+    TRACESTATE_KEY,
+)
 
 
 def trace_carrier_from_span(span: Span) -> dict[str, str]:
@@ -70,7 +75,9 @@ def trace_carrier_from_request(request: web.Request) -> dict[str, str]:
     return carrier
 
 
-def otel_context_from_carrier(carrier: Mapping[str, str]) -> otel_context.Context | None:
+def otel_context_from_carrier(
+    carrier: Mapping[str, str],
+) -> otel_context.Context | None:
     """Extract an OpenTelemetry context from a W3C trace carrier."""
     if TRACEPARENT_KEY not in carrier:
         return None
@@ -92,7 +99,9 @@ def span_creation_context_from_carrier(
     return otel_context.Context()
 
 
-def enrich_context_dict(context_dict: dict[str, Any], ha_context: Context) -> dict[str, Any]:
+def enrich_context_dict(
+    context_dict: dict[str, Any], ha_context: Context
+) -> dict[str, Any]:
     """Add W3C trace fields to a serialized Home Assistant context dict."""
     trace_fields = trace_carrier_from_ha_context(ha_context)
     if not trace_fields:
