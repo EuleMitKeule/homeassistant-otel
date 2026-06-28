@@ -151,12 +151,20 @@ def trace_carrier_from_mqtt_message(msg: Any) -> dict[str, str]:
 
     user_properties = getattr(properties, "UserProperty", None)
     if not user_properties:
+        user_properties = getattr(properties, "user_property", None)
+    if not user_properties:
         return {}
 
     carrier: dict[str, str] = {}
-    for key, value in user_properties:
-        if key == TRACEPARENT_KEY and isinstance(value, str):
+    if isinstance(user_properties, dict):
+        items = user_properties.items()
+    else:
+        items = user_properties
+
+    for key, value in items:
+        key_str = str(key)
+        if key_str == TRACEPARENT_KEY and isinstance(value, str):
             carrier[TRACEPARENT_KEY] = value
-        elif key == TRACESTATE_KEY and isinstance(value, str):
+        elif key_str == TRACESTATE_KEY and isinstance(value, str):
             carrier[TRACESTATE_KEY] = value
     return carrier

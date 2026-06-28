@@ -14,11 +14,13 @@ from homeassistant.const import CONF_PROTOCOL
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 
+from .mqtt_correlation import lookup_mqtt_publish_carrier, register_mqtt_publish_carrier
 from .mqtt_tracing import MqttTracingPatch
 from .propagation import (
     inject_current_trace_into_mqtt_properties,
     span_creation_context_from_carrier,
     trace_carrier_from_mqtt_message,
+    trace_carrier_from_span,
 )
 from .span_attributes import mqtt_message_attributes
 
@@ -51,6 +53,8 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
             payload_size=payload_size,
         )
         carrier = trace_carrier_from_mqtt_message(msg)
+        if not carrier:
+            carrier = lookup_mqtt_publish_carrier(topic, msg.payload)
         with tracer.start_as_current_span(
             "mqtt/message",
             context=span_creation_context_from_carrier(carrier),
@@ -79,7 +83,7 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
             "mqtt/publish",
             kind=SpanKind.PRODUCER,
             attributes=attributes,
-        ):
+        ) as span:
             properties = paho_mqtt.Properties(paho_mqtt.PacketTypes.PUBLISH)  # type: ignore[no-untyped-call]
             if message_expiry_interval is not None:
                 if not self.is_mqttv5:
@@ -94,6 +98,11 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
                 properties.MessageExpiryInterval = message_expiry_interval
             if self.is_mqttv5:
                 inject_current_trace_into_mqtt_properties(properties)
+            register_mqtt_publish_carrier(
+                topic,
+                payload,
+                trace_carrier_from_span(span),
+            )
             msg_info = self._mqttc.publish(topic, payload, qos, retain, properties)
             _LOGGER.debug(
                 "Transmitting%s message on %s: '%s', mid: %s, qos: %s,"
