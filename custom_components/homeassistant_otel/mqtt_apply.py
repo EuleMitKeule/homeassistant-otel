@@ -8,11 +8,18 @@ from opentelemetry.trace import SpanKind, Tracer
 import paho.mqtt.client as paho_mqtt
 
 from homeassistant.components import mqtt
-from homeassistant.components.mqtt import MQTT
+from homeassistant.components.mqtt.client import MQTT, PublishPayloadType
+from homeassistant.components.mqtt.const import DOMAIN, PROTOCOL_311
+from homeassistant.const import CONF_PROTOCOL
 from homeassistant.core import callback
+from homeassistant.exceptions import ServiceValidationError
 
-from .context_linking import root_otel_context
 from .mqtt_tracing import MqttTracingPatch
+from .propagation import (
+    inject_current_trace_into_mqtt_properties,
+    span_creation_context_from_carrier,
+    trace_carrier_from_mqtt_message,
+)
 from .span_attributes import mqtt_message_attributes
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,6 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
     """Patch MQTT message handling with OpenTelemetry spans."""
     original_on_message = mqtt.client.MQTT._async_mqtt_on_message
+    original_async_publish = MQTT.async_publish
 
     @callback
     def traced_on_message(
@@ -42,17 +50,58 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
             retain=msg.retain,
             payload_size=payload_size,
         )
+        carrier = trace_carrier_from_mqtt_message(msg)
         with tracer.start_as_current_span(
             "mqtt/message",
-            context=root_otel_context(),
+            context=span_creation_context_from_carrier(carrier),
             kind=SpanKind.CONSUMER,
             attributes=attributes,
         ):
             original_on_message(self, _mqttc, _userdata, msg)
 
-    mqtt.client.MQTT._async_mqtt_on_message = traced_on_message  # type: ignore[method-assign]
+    async def traced_async_publish(
+        self: MQTT,
+        topic: str,
+        payload: PublishPayloadType,
+        qos: int,
+        retain: bool,
+        *,
+        message_expiry_interval: int | None = None,
+    ) -> None:
+        properties = paho_mqtt.Properties(paho_mqtt.PacketTypes.PUBLISH)  # type: ignore[no-untyped-call]
+        if message_expiry_interval is not None:
+            if not self.is_mqttv5:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="mqtt_message_expiry_interval_not_supported",
+                    translation_placeholders={
+                        "topic": topic,
+                        "protocol": self.conf.get(CONF_PROTOCOL, PROTOCOL_311),
+                    },
+                )
+            properties.MessageExpiryInterval = message_expiry_interval
+        if self.is_mqttv5:
+            inject_current_trace_into_mqtt_properties(properties)
+        msg_info = self._mqttc.publish(topic, payload, qos, retain, properties)
+        _LOGGER.debug(
+            "Transmitting%s message on %s: '%s', mid: %s, qos: %s,"
+            " message_expiry_interval: %s",
+            " retained" if retain else "",
+            topic,
+            payload,
+            msg_info.mid,
+            qos,
+            message_expiry_interval,
+        )
+        await self._async_wait_for_mid_or_raise(msg_info.mid, msg_info.rc)
 
-    patch = MqttTracingPatch(original_on_message=original_on_message)
+    mqtt.client.MQTT._async_mqtt_on_message = traced_on_message  # type: ignore[method-assign]
+    MQTT.async_publish = traced_async_publish  # type: ignore[method-assign]
+
+    patch = MqttTracingPatch(
+        original_on_message=original_on_message,
+        original_async_publish=original_async_publish,
+    )
     _LOGGER.debug("Installed MQTT tracing hooks")
     return patch
 
@@ -60,4 +109,5 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
 def remove_mqtt_patch(patch: MqttTracingPatch) -> None:
     """Restore the original MQTT message handler."""
     mqtt.client.MQTT._async_mqtt_on_message = patch.original_on_message  # type: ignore[method-assign]
+    MQTT.async_publish = patch.original_async_publish  # type: ignore[method-assign]
     _LOGGER.debug("Removed MQTT tracing hooks")

@@ -24,6 +24,7 @@ class MqttTracingPatch:
     """Installed MQTT tracing hooks."""
 
     original_on_message: Callable[..., Any]
+    original_async_publish: Callable[..., Any]
 
 
 def install_mqtt_tracing(

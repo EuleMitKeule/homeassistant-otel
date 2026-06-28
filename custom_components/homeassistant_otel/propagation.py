@@ -121,3 +121,42 @@ def event_dict_with_trace_context(event: Event[Any]) -> dict[str, Any]:
     else:
         event_dict["context"] = enrich_context_dict(dict(context_dict), event.context)
     return event_dict
+
+
+def inject_current_trace_into_mqtt_properties(properties: Any) -> None:
+    """Inject the active W3C trace context into MQTT v5 User Properties."""
+    current_span = trace.get_current_span()
+    if not current_span.is_recording():
+        return
+
+    carrier = trace_carrier_from_span(current_span)
+    if TRACEPARENT_KEY not in carrier:
+        return
+
+    user_properties = list(getattr(properties, "UserProperty", None) or [])
+    existing_keys = {key for key, _value in user_properties}
+    user_properties.extend(
+        (key, carrier[key])
+        for key in (TRACEPARENT_KEY, TRACESTATE_KEY)
+        if key in carrier and key not in existing_keys
+    )
+    properties.UserProperty = user_properties
+
+
+def trace_carrier_from_mqtt_message(msg: Any) -> dict[str, str]:
+    """Extract W3C trace fields from an MQTT v5 message."""
+    properties = getattr(msg, "properties", None)
+    if properties is None:
+        return {}
+
+    user_properties = getattr(properties, "UserProperty", None)
+    if not user_properties:
+        return {}
+
+    carrier: dict[str, str] = {}
+    for key, value in user_properties:
+        if key == TRACEPARENT_KEY and isinstance(value, str):
+            carrier[TRACEPARENT_KEY] = value
+        elif key == TRACESTATE_KEY and isinstance(value, str):
+            carrier[TRACESTATE_KEY] = value
+    return carrier
