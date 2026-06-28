@@ -82,6 +82,10 @@ def resolve_span_creation_context(
     ha_context: Context | None,
 ) -> otel_context.Context:
     """Resolve the OpenTelemetry context to use when starting a span."""
+    current_span = trace.get_current_span()
+    if current_span.is_recording():
+        return otel_context.get_current()
+
     carrier = trace_carrier_from_ha_context(ha_context)
     if carrier:
         remote_context = otel_context_from_carrier(carrier)

@@ -68,32 +68,44 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
         *,
         message_expiry_interval: int | None = None,
     ) -> None:
-        properties = paho_mqtt.Properties(paho_mqtt.PacketTypes.PUBLISH)  # type: ignore[no-untyped-call]
-        if message_expiry_interval is not None:
-            if not self.is_mqttv5:
-                raise ServiceValidationError(
-                    translation_domain=DOMAIN,
-                    translation_key="mqtt_message_expiry_interval_not_supported",
-                    translation_placeholders={
-                        "topic": topic,
-                        "protocol": self.conf.get(CONF_PROTOCOL, PROTOCOL_311),
-                    },
-                )
-            properties.MessageExpiryInterval = message_expiry_interval
-        if self.is_mqttv5:
-            inject_current_trace_into_mqtt_properties(properties)
-        msg_info = self._mqttc.publish(topic, payload, qos, retain, properties)
-        _LOGGER.debug(
-            "Transmitting%s message on %s: '%s', mid: %s, qos: %s,"
-            " message_expiry_interval: %s",
-            " retained" if retain else "",
-            topic,
-            payload,
-            msg_info.mid,
-            qos,
-            message_expiry_interval,
+        payload_size = 0 if payload is None else len(payload)
+        attributes = mqtt_message_attributes(
+            topic=topic,
+            qos=qos,
+            retain=retain,
+            payload_size=payload_size,
         )
-        await self._async_wait_for_mid_or_raise(msg_info.mid, msg_info.rc)
+        with tracer.start_as_current_span(
+            "mqtt/publish",
+            kind=SpanKind.PRODUCER,
+            attributes=attributes,
+        ):
+            properties = paho_mqtt.Properties(paho_mqtt.PacketTypes.PUBLISH)  # type: ignore[no-untyped-call]
+            if message_expiry_interval is not None:
+                if not self.is_mqttv5:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="mqtt_message_expiry_interval_not_supported",
+                        translation_placeholders={
+                            "topic": topic,
+                            "protocol": self.conf.get(CONF_PROTOCOL, PROTOCOL_311),
+                        },
+                    )
+                properties.MessageExpiryInterval = message_expiry_interval
+            if self.is_mqttv5:
+                inject_current_trace_into_mqtt_properties(properties)
+            msg_info = self._mqttc.publish(topic, payload, qos, retain, properties)
+            _LOGGER.debug(
+                "Transmitting%s message on %s: '%s', mid: %s, qos: %s,"
+                " message_expiry_interval: %s",
+                " retained" if retain else "",
+                topic,
+                payload,
+                msg_info.mid,
+                qos,
+                message_expiry_interval,
+            )
+            await self._async_wait_for_mid_or_raise(msg_info.mid, msg_info.rc)
 
     mqtt.client.MQTT._async_mqtt_on_message = traced_on_message  # type: ignore[method-assign]
     MQTT.async_publish = traced_async_publish  # type: ignore[method-assign]
