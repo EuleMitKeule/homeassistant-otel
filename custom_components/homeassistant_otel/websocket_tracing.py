@@ -19,6 +19,7 @@ from homeassistant.components.websocket_api import (
     WebSocketCommandHandler,
 )
 from homeassistant.core import Context, HomeAssistant, callback
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.typing import VolSchemaType
 
 from .const import TRACEPARENT_KEY, TRACESTATE_KEY
@@ -66,6 +67,20 @@ def install_websocket_tracing(
     original_connection_context = ActiveConnection.context
     restore_handlers = _wrap_existing_handlers(hass, tracer)
     restore_schemas = _extend_trace_context_ws_schemas(hass)
+
+    @callback
+    def _refresh_trace_context_ws_schemas(_event: Any | None = None) -> None:
+        nonlocal restore_schemas
+        restore_schemas()
+        restore_schemas = _extend_trace_context_ws_schemas(hass)
+
+    if hass.state.running:
+        _refresh_trace_context_ws_schemas()
+    else:
+        hass.bus.async_listen_once(
+            EVENT_HOMEASSISTANT_STARTED,
+            _refresh_trace_context_ws_schemas,
+        )
 
     def traced_connection_context(
         self: ActiveConnection,
@@ -120,7 +135,7 @@ def install_websocket_tracing(
             and command_or_handler in _WS_COMMANDS_ACCEPTING_TRACE_CONTEXT
             and schema is not None
         ):
-            resolved_schema = schema.extend(_TRACE_CONTEXT_WS_SCHEMA)
+            resolved_schema = _extend_ws_schema(schema)
 
         wrapped_handler = _wrap_handler(tracer, handler)
         original_register_command(
@@ -172,7 +187,16 @@ def _extend_trace_context_ws_schemas(hass: HomeAssistant) -> Callable[[], None]:
         if schema is False:
             continue
         original_schemas[command] = schema
-        handlers[command] = (handler, schema.extend(_TRACE_CONTEXT_WS_SCHEMA))
+        handlers[command] = (handler, _extend_ws_schema(schema))
+        _LOGGER.debug(
+            "Extended WebSocket schema for %s to accept W3C trace context",
+            command,
+        )
+
+    if not original_schemas:
+        _LOGGER.debug(
+            "No WebSocket schemas extended yet for trace context propagation"
+        )
 
     def restore_schemas() -> None:
         current_handlers = hass.data.get(websocket_api.DOMAIN)
@@ -183,6 +207,33 @@ def _extend_trace_context_ws_schemas(hass: HomeAssistant) -> Callable[[], None]:
             current_handlers[command] = (handler, schema)
 
     return restore_schemas
+
+
+def _extend_ws_schema(schema: VolSchemaType | bool) -> VolSchemaType | bool:
+    """Extend a WebSocket command schema with optional W3C trace fields.
+
+    Home Assistant validates ``call_service`` strictly (Probatio/voluptuous
+    ``PREVENT_EXTRA``). Without this extension AppDaemon's ``traceparent``
+    on the websocket command is rejected and the service never runs.
+    ``ALLOW_EXTRA`` keeps W3C fields even if marker merge fails across
+    voluptuous/Probatio implementations.
+    """
+    if schema is False:
+        return schema
+    extend = getattr(schema, "extend", None)
+    if not callable(extend):
+        _LOGGER.warning(
+            "Cannot extend WebSocket schema type %s for W3C trace context",
+            type(schema).__name__,
+        )
+        return schema
+    try:
+        return extend(_TRACE_CONTEXT_WS_SCHEMA, extra=vol.ALLOW_EXTRA)
+    except TypeError:
+        return extend(_TRACE_CONTEXT_WS_SCHEMA)
+    except Exception:
+        _LOGGER.exception("Failed to extend WebSocket schema with W3C trace context")
+        return schema
 
 
 def _wrap_existing_handlers(

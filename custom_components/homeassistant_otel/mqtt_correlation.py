@@ -49,6 +49,27 @@ def register_mqtt_publish_carrier(
     ttl_seconds: float = _DEFAULT_TTL_SECONDS,
 ) -> None:
     """Remember W3C trace fields for a pending outbound MQTT publish."""
+    _register_carrier(topic, payload, carrier, ttl_seconds=ttl_seconds)
+
+
+def register_mqtt_inbound_carrier(
+    topic: str,
+    payload: Any,
+    carrier: dict[str, str],
+    *,
+    ttl_seconds: float = _DEFAULT_TTL_SECONDS,
+) -> None:
+    """Remember W3C trace fields for a consumed MQTT message (for async follow-ups)."""
+    _register_carrier(topic, payload, carrier, ttl_seconds=ttl_seconds)
+
+
+def _register_carrier(
+    topic: str,
+    payload: Any,
+    carrier: dict[str, str],
+    *,
+    ttl_seconds: float,
+) -> None:
     if TRACEPARENT_KEY not in carrier:
         return
 
@@ -63,13 +84,32 @@ def register_mqtt_publish_carrier(
 
 def lookup_mqtt_publish_carrier(topic: str, payload: Any) -> dict[str, str]:
     """Return stored trace fields for a recently published MQTT message."""
+    return _lookup_carrier(topic, payload, consume=True)
+
+
+def lookup_mqtt_inbound_carrier(topic: str, payload: Any = "") -> dict[str, str]:
+    """Return stored trace fields for a recent inbound MQTT message."""
+    return _lookup_carrier(topic, payload, consume=False)
+
+
+def lookup_mqtt_inbound_carrier_for_entity(entity_id: str) -> dict[str, str]:
+    """Return trace fields for a recent MQTT state topic matching an entity id."""
+    if "." not in entity_id:
+        return {}
+    domain, object_id = entity_id.split(".", 1)
+    topic = f"homeassistant/{domain}/{object_id}/state"
+    return lookup_mqtt_inbound_carrier(topic)
+
+
+def _lookup_carrier(topic: str, payload: Any, *, consume: bool) -> dict[str, str]:
     normalized_payload = _normalize_payload(payload)
     now = time.monotonic()
     with _lock:
         _purge_expired(now)
         for candidate_topic in _related_topics(topic):
             for candidate_payload in (normalized_payload, ""):
-                entry = _pending.pop((candidate_topic, candidate_payload), None)
+                key = (candidate_topic, candidate_payload)
+                entry = _pending.pop(key) if consume else _pending.get(key)
                 if entry is None:
                     continue
                 carrier, expires_at = entry
@@ -78,4 +118,10 @@ def lookup_mqtt_publish_carrier(topic: str, payload: Any) -> dict[str, str]:
     return {}
 
 
-__all__ = ["lookup_mqtt_publish_carrier", "register_mqtt_publish_carrier"]
+__all__ = [
+    "lookup_mqtt_inbound_carrier",
+    "lookup_mqtt_inbound_carrier_for_entity",
+    "lookup_mqtt_publish_carrier",
+    "register_mqtt_inbound_carrier",
+    "register_mqtt_publish_carrier",
+]

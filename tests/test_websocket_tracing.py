@@ -23,6 +23,7 @@ from custom_components.homeassistant_otel.const import (
     ATTR_WEBSOCKET_MESSAGE_ID,
 )
 from custom_components.homeassistant_otel.websocket_tracing import (
+    _extend_ws_schema,
     _is_async_websocket_handler,
     _wrap_handler,
     install_websocket_tracing,
@@ -107,6 +108,33 @@ async def test_async_handler_creates_span(
     assert spans[0].name == "websocket_api/test/async"
 
     uninstall_websocket_tracing(hass)
+
+
+def test_extend_ws_schema_accepts_call_service_traceparent() -> None:
+    """AppDaemon injects traceparent at the call_service WS root."""
+    import voluptuous as vol
+
+    from homeassistant.components.websocket_api.messages import (
+        BASE_COMMAND_MESSAGE_SCHEMA,
+    )
+
+    schema = BASE_COMMAND_MESSAGE_SCHEMA.extend({
+        vol.Required("type"): "call_service",
+        vol.Required("domain"): str,
+        vol.Required("service"): str,
+        vol.Optional("service_data"): dict,
+    })
+    extended = _extend_ws_schema(schema)
+    assert extended is not False
+    validated = extended({
+        "id": 681,
+        "type": "call_service",
+        "domain": "mqtt",
+        "service": "publish",
+        "service_data": {"topic": "t", "payload": "p", "retain": True},
+        "traceparent": "00-c36e3eb1493bb0a81a74c10b4e120712-569a5dba094785cd-01",
+    })
+    assert validated["traceparent"].startswith("00-")
 
 
 def _make_connection() -> Any:

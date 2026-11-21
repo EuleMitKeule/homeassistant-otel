@@ -5,9 +5,12 @@
 from opentelemetry import context as otel_context, trace
 from opentelemetry.trace import NonRecordingSpan, Span, SpanContext
 
+from typing import Any
+
 from homeassistant.core import Context, HomeAssistant
 
 from .const import CONTEXT_REGISTRY_KEY, OTEL_CONTEXT_CACHE_KEY
+from .mqtt_correlation import lookup_mqtt_inbound_carrier_for_entity
 from .propagation import (
     otel_context_from_carrier,
     store_trace_carrier_on_context,
@@ -80,6 +83,9 @@ def resolve_parent_otel_context(
 def resolve_span_creation_context(
     hass: HomeAssistant,
     ha_context: Context | None,
+    *,
+    event_type: str | None = None,
+    event_data: Any | None = None,
 ) -> otel_context.Context:
     """Resolve the OpenTelemetry context to use when starting a span."""
     current_span = trace.get_current_span()
@@ -91,6 +97,15 @@ def resolve_span_creation_context(
         remote_context = otel_context_from_carrier(carrier)
         if remote_context is not None:
             return remote_context
+
+    if event_type == "state_changed" and isinstance(event_data, dict):
+        entity_id = event_data.get("entity_id")
+        if isinstance(entity_id, str):
+            mqtt_carrier = lookup_mqtt_inbound_carrier_for_entity(entity_id)
+            if mqtt_carrier:
+                remote_context = otel_context_from_carrier(mqtt_carrier)
+                if remote_context is not None:
+                    return remote_context
 
     parent_otel_context = resolve_parent_otel_context(hass, ha_context)
     if parent_otel_context is not None:

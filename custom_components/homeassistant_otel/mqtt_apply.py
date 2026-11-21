@@ -14,7 +14,11 @@ from homeassistant.const import CONF_PROTOCOL
 from homeassistant.core import callback
 from homeassistant.exceptions import ServiceValidationError
 
-from .mqtt_correlation import lookup_mqtt_publish_carrier, register_mqtt_publish_carrier
+from .mqtt_correlation import (
+    lookup_mqtt_publish_carrier,
+    register_mqtt_inbound_carrier,
+    register_mqtt_publish_carrier,
+)
 from .mqtt_tracing import MqttTracingPatch
 from .propagation import (
     inject_current_trace_into_mqtt_properties,
@@ -60,7 +64,12 @@ def apply_mqtt_patch(tracer: Tracer) -> MqttTracingPatch:
             context=span_creation_context_from_carrier(carrier),
             kind=SpanKind.CONSUMER,
             attributes=attributes,
-        ):
+        ) as span:
+            register_mqtt_inbound_carrier(
+                topic,
+                msg.payload,
+                trace_carrier_from_span(span),
+            )
             original_on_message(self, _mqttc, _userdata, msg)
 
     async def traced_async_publish(

@@ -49,6 +49,12 @@ def install_websocket_event_propagation() -> WebSocketEventPropagationPatch:
 
     @lru_cache(maxsize=128)
     def traced_partial_cached_event_message(event: Event[Any]) -> bytes:
+        """Serialize the event without a trailing '}' or id.
+
+        Home Assistant 2026.8+ caches this partial payload and appends
+        ``,"id":<n>}`` in ``cached_event_message``. Returning a complete JSON
+        object here leaves a dangling ``,"id":<n>}`` fragment on the wire.
+        """
         event_dict = event_dict_with_trace_context(event)
         return (
             messages._message_to_json_bytes_or_none({
@@ -56,7 +62,7 @@ def install_websocket_event_propagation() -> WebSocketEventPropagationPatch:
                 "event": event_dict,
             })
             or messages.INVALID_JSON_PARTIAL_MESSAGE
-        )
+        )[:-1]
 
     def traced_state_diff_event(
         event: Event[EventStateChangedData],

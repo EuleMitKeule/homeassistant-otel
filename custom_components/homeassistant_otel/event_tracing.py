@@ -133,7 +133,12 @@ def _event_span(
     )
     span_context = tracer.start_as_current_span(
         span_name,
-        context=resolve_span_creation_context(hass, context),
+        context=resolve_span_creation_context(
+            hass,
+            context,
+            event_type=str(event_type),
+            event_data=event_data if isinstance(event_data, dict) else None,
+        ),
         kind=SpanKind.INTERNAL,
         attributes=attributes,
     )
